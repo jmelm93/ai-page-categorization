@@ -24,23 +24,28 @@ import scraping
 # --- Node Functions ---
 
 async def process_urls_node(state: FlowState) -> dict:
+    logger.info("Processing URLs...")
     results, failed_urls = await scraping.process_urls(state)  
     return {"results": results, "failed_urls": failed_urls} # Update state keys
 
 async def normalize_industry_node(state: FlowState) -> dict:
+    logger.info("Normalizing industry...")
     updated_results = await normalization.normalize_industry(state)
     return {"results": updated_results} # Update state keys
 
 async def normalize_page_topic_node(state: FlowState) -> dict:
+    logger.info("Normalizing page topic...")
     updated_results = await normalization.normalize_page_topic(state) 
     return {"results": updated_results} # Update state keys
 
 async def evaluate_normalization_node(state: FlowState) -> dict:
+    logger.info("Evaluating normalization...")
     result = await normalization.evaluate_normalization(state)
     return result # No unpacking needed to update state keys
 
 
 def should_retry(state: FlowState) -> str:
+    logger.info("Checking if normalization should be retried...")
     # Correctly check eval_status
     if state["retry_count"] < RETRY_ATTEMPTS and state.get("eval_status") == "failure":
         logger.info("Retrying normalization...")
@@ -52,6 +57,8 @@ def should_retry(state: FlowState) -> str:
 
 # --- Aggregation and Output ---
 def aggregator(state: FlowState) -> dict:
+    logger.info("Aggregating results...")
+    
     results = state["results"]
     failed_urls = state["failed_urls"]
 

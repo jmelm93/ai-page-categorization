@@ -15,7 +15,7 @@ async def get_structured_mappings(prompt_str: str, llm: ChatOpenAI) -> Dict[str,
     chain = prompt | llm | parser
 
     try:
-        logger.info("Requesting structured mappings from AI.")
+        # logger.info("Requesting structured mappings from AI.")
         result = await chain.ainvoke({"prompt": prompt_str})
 
         # Try to parse as NormalizedMappingResponse.  If it fails, try fallback parsing.

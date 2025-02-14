@@ -1,21 +1,20 @@
 import re
+import asyncio  
 from typing import List
-
 from loguru import logger
+from pydantic import ValidationError
+from dateutil import parser as date_parser
+
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.output_parsers import PydanticOutputParser
 from langchain.schema import OutputParserException
-from pydantic import ValidationError
-from dateutil import parser as date_parser
 
 from models import PageSegmentation, FlowState
 from utils import async_scrape_url
 from config import H1_CONTENT_LIMIT, KEYWORD_SENTENCE_LIMIT, MAX_CONTENT_LENGTH, NUM_KEYWORDS, BATCH_SIZE
 
 from sklearn.feature_extraction.text import TfidfVectorizer
-import asyncio  
-
 
 async def async_analyze_page(page_content: str, page_url: str, llm: ChatOpenAI) -> PageSegmentation:
     parser = PydanticOutputParser(pydantic_object=PageSegmentation)
@@ -33,9 +32,9 @@ Content: {page_content}
     chain = prompt | llm | parser
 
     try:
-        logger.info(f"Starting AI analysis for {page_url}")
+        # logger.info(f"Starting AI analysis for {page_url}")
         result = await chain.ainvoke({"page_content": page_content, "page_url": page_url})
-        logger.info(f"Finished AI analysis for {page_url}")
+        # logger.info(f"Finished AI analysis for {page_url}")
         return result
     except (OutputParserException, ValidationError) as e:
         logger.error(f"Parsing error for {page_url}: {e}")
