@@ -52,6 +52,11 @@ async def normalize_industry(state: FlowState, llm: ChatOpenAI) -> List[PageSegm
     results = state["results"]
     notes = state["evaluation_notes"]
     
+    # structured_notes = f"""
+    # **IMPORTANT**: We've run this process before. When previously attempted, the evaluation failed and returned the following notes:
+    # {notes}
+    # """
+    
     # if len(results) < MIN_PAGES_FOR_NORMALIZATION:
     #     logger.info("Skipping industry normalization (not enough pages).")
     #     return results
@@ -82,10 +87,13 @@ Output:
 Input Values:
 {list(distinct_vals)}
 
-{notes}
-
 Return JSON in the EXACT format shown in the example, with a top-level "mappings" key.
 """
+
+    # add structured_notes to prompt_str if notes exist
+    if notes:
+        prompt_str = prompt_str + structured_notes
+    
     industry_map = await get_structured_mappings(prompt_str, llm)  # Pass llm
     for r in results:
         if r.industry:  # Check if r.industry is not None

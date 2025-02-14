@@ -3,7 +3,7 @@ import asyncio
 from typing import List
 from loguru import logger
 from pydantic import ValidationError
-from dateutil import parser as date_parser
+from urllib.parse import urlparse
 
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
@@ -15,6 +15,24 @@ from utils import async_scrape_url
 from config import H1_CONTENT_LIMIT, KEYWORD_SENTENCE_LIMIT, MAX_CONTENT_LENGTH, NUM_KEYWORDS, BATCH_SIZE
 
 from sklearn.feature_extraction.text import TfidfVectorizer
+
+def is_homepage_url(url: str) -> bool:
+    """
+    Checks if a URL is likely to be a homepage based on its structure.
+    """
+    parsed_url = urlparse(url)
+    path = parsed_url.path.strip("/")  # Remove leading/trailing slashes
+
+    # Check for common homepage patterns:
+    if not path:  # Empty path (e.g., "https://www.example.com/")
+        return True
+    if path == "home" or path == "index.html" or path == "index.php": #common homepage paths
+        return True
+    if parsed_url.netloc.startswith("www."): #check if www. is in URL and path is empty
+        if not path:
+            return True
+    return False
+
 
 async def async_analyze_page(page_content: str, page_url: str, llm: ChatOpenAI) -> PageSegmentation:
     parser = PydanticOutputParser(pydantic_object=PageSegmentation)
@@ -45,6 +63,11 @@ If no content is available, use the URL for analysis. If URL doesn't contain suf
 
 
 async def process_one_url(url: str, llm: ChatOpenAI) -> PageSegmentation:
+    # --- URL-Based Homepage Check FIRST ---
+    if is_homepage_url(url):
+        return PageSegmentation(page_url=url, page_type_l1="Homepage", page_type_l2=None, industry=None, page_topic=None)
+    
+    # --- If not a homepage, proceed with content extraction ---
     try:
         resp = await async_scrape_url(url)
         md_text = resp.get("markdown", "")
