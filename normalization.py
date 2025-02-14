@@ -203,4 +203,4 @@ JSON: {format_instructions}""",
         return {"evaluation_notes": evaluation.notes, "retry_count": retry_count, "eval_status": evaluation.status}
     except Exception as e:
         logger.error(f"Error during normalization evaluation: {e}")
-        return "Error during evaluation.", retry_count
+        return {"evaluation_notes": "Error during evaluation.", "retry_count": retry_count, "eval_status": "failure"}

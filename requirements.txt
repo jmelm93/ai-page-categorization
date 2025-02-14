@@ -1,6 +1,7 @@
 langchain
 langchain-community
 langchain-openai
+langgraph
 loguru
 firecrawl
 pandas

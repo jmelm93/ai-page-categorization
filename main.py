@@ -41,7 +41,6 @@ async def evaluate_normalization_node(state: FlowState) -> dict:
 
 
 def should_retry(state: FlowState) -> str:
-    print('--- running should_retry ---')
     # Correctly check eval_status
     if state["retry_count"] < RETRY_ATTEMPTS and state.get("eval_status") == "failure":
         logger.info("Retrying normalization...")
