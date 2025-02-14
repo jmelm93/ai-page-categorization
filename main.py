@@ -8,8 +8,8 @@ from typing import List
 from loguru import logger
 
 # LangChain
-from langchain.callbacks import get_openai_callback
 from langchain_openai import ChatOpenAI
+from langchain_community.callbacks import OpenAICallbackHandler
 
 # LangGraph
 from langgraph.graph import END, START, StateGraph
@@ -22,8 +22,9 @@ import normalization
 import scraping
 
 # --- LLM Setup ---
-llm_advanced = ChatOpenAI(model_name=LLM_MODEL_ADVANCED, temperature=TEMPERATURE)
-llm_fast = ChatOpenAI(model_name=LLM_MODEL_FAST, temperature=TEMPERATURE)
+callback_handler = OpenAICallbackHandler()
+llm_advanced = ChatOpenAI(model=LLM_MODEL_ADVANCED, temperature=TEMPERATURE, callbacks=[callback_handler])
+llm_fast = ChatOpenAI(model=LLM_MODEL_FAST, temperature=TEMPERATURE, callbacks=[callback_handler])
 
 # --- Node Functions ---
 
@@ -79,13 +80,10 @@ def aggregator(state: FlowState) -> dict:
                 "page_url": seg.page_url or "",
                 "page_type_l1": seg.page_type_l1 or "",
                 "page_type_l2": seg.page_type_l2 or "",
-                "page_intent_l1": seg.page_intent_l1 or "",
-                "page_intent_l2": seg.page_intent_l2 or "",
                 "industry": seg.industry or "",
                 "page_topic": seg.page_topic or "",
                 "industry_normalized": seg.industry_normalized or "",
                 "page_topic_normalized": seg.page_topic_normalized or "",
-                "extracted_date": seg.extracted_date.strftime("%Y-%m-%d") if seg.extracted_date else "",
             }
         )
     df = pd.DataFrame(
@@ -94,13 +92,10 @@ def aggregator(state: FlowState) -> dict:
             "page_url",
             "page_type_l1",
             "page_type_l2",
-            "page_intent_l1",
-            "page_intent_l2",
             "industry",
             "page_topic",
             "industry_normalized",
             "page_topic_normalized",
-            "extracted_date",
         ],
     )
 
@@ -162,8 +157,8 @@ async def main():
 
     logger.info(f"Loaded {len(urls)} URLs from {INPUT_CSV_PATH}.")
 
-    with get_openai_callback() as cb:
-        final_state = await run_flow_async(urls)
+    # with get_openai_callback() as cb:
+    final_state = await run_flow_async(urls)
 
     output_dir = "output"
     os.makedirs(output_dir, exist_ok=True)
@@ -181,10 +176,11 @@ async def main():
     if final_state["failed_urls"]:
         logger.warning(f"Failed URLs: {final_state['failed_urls']}")
 
-    logger.info(f"Total Tokens: {cb.total_tokens}")
-    logger.info(f"Prompt Tokens: {cb.prompt_tokens}")
-    logger.info(f"Completion Tokens: {cb.completion_tokens}")
-    logger.info(f"Total Cost (USD): ${cb.total_cost}")
+    # log_openai_callback_costs("main", callback_handler)
+    logger.info(f"Total Tokens: {callback_handler.total_tokens}")
+    logger.info(f"Prompt Tokens: {callback_handler.prompt_tokens}")
+    logger.info(f"Completion Tokens: {callback_handler.completion_tokens}")
+    logger.info(f"Total Cost (USD): ${callback_handler.total_cost}")
 
 if __name__ == "__main__":
     asyncio.run(main())

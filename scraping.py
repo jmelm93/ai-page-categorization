@@ -19,12 +19,14 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 async def async_analyze_page(page_content: str, page_url: str, llm: ChatOpenAI) -> PageSegmentation:
     parser = PydanticOutputParser(pydantic_object=PageSegmentation)
     prompt = PromptTemplate(
-        template="""You are an SEO and content analysis assistant. Analyze the markdown content and return JSON:
+        template="""You are an SEO and content analysis assistant. Analyze the markdown content and return JSON. 
+If no content is available, use the URL for analysis. If URL doesn't contain sufficient context to group, return 'Unable to determine'.
 
 {schema}
 
-URL: {page_url}
-Content: {page_content}
+**URL**: {page_url}
+**Content (contains part of page content)**: 
+{page_content}
 """,
         input_variables=["page_content", "page_url"],
         partial_variables={"schema": parser.get_format_instructions()},
@@ -32,24 +34,14 @@ Content: {page_content}
     chain = prompt | llm | parser
 
     try:
-        # logger.info(f"Starting AI analysis for {page_url}")
         result = await chain.ainvoke({"page_content": page_content, "page_url": page_url})
-        # logger.info(f"Finished AI analysis for {page_url}")
         return result
     except (OutputParserException, ValidationError) as e:
         logger.error(f"Parsing error for {page_url}: {e}")
-        return PageSegmentation(
-            page_url=page_url,
-            page_type_l1="Error",
-            page_intent_l1="Error",
-        )
+        return PageSegmentation(page_url=page_url, page_type_l1="Error - Unable to Process Page", page_type_l2=None, industry=None, page_topic=None)
     except Exception as e:
         logger.exception(f"Unexpected error during analysis of {page_url}: {e}")
-        return PageSegmentation(
-            page_url=page_url,
-            page_type_l1="Error",
-            page_intent_l1="Error",
-        )
+        return PageSegmentation(page_url=page_url, page_type_l1="Error - Unable to Process Page", page_type_l2=None, industry=None, page_topic=None)
 
 
 async def process_one_url(url: str, llm: ChatOpenAI) -> PageSegmentation:
@@ -57,15 +49,9 @@ async def process_one_url(url: str, llm: ChatOpenAI) -> PageSegmentation:
         resp = await async_scrape_url(url)
         md_text = resp.get("markdown", "")
         if not md_text:
-            logger.warning(f"No text for {url}")
-            return PageSegmentation(page_url=url, page_type_l1="Unknown", page_intent_l1="Unknown")
-        date_str = resp.get("date")
-        extracted_date = None
-        if date_str:
-            try:
-                extracted_date = date_parser.parse(date_str).date()
-            except ValueError:
-                logger.warning(f"Could not parse date for {url}: {date_str}")
+            logger.warning(f"No text for {url}. Running analysis with URL only.")
+            segmentation = await async_analyze_page("No content extraction available for this page. Use solely the URL for analysis.", url, llm)
+            return segmentation
 
         # --- Content Extraction Logic ---
         h1_content = ""
@@ -121,12 +107,11 @@ async def process_one_url(url: str, llm: ChatOpenAI) -> PageSegmentation:
         limited_content = combined_content[:MAX_CONTENT_LENGTH]
         
         segmentation = await async_analyze_page(limited_content, url, llm) # Pass limited content and llm
-        segmentation.extracted_date = extracted_date
         return segmentation
 
     except Exception as e:
         logger.error(f"Error processing {url}: {e}")
-        return PageSegmentation(page_url=url, page_type_l1="Error", page_intent_l1="Error", extracted_date=None, page_type_l2=None, page_intent_l2=None, industry=None, page_topic=None)
+        return PageSegmentation(page_url=url, page_type_l1="Error - Unable to Process Page", page_type_l2=None, industry=None, page_topic=None)
 
 async def process_urls(state: FlowState, llm: ChatOpenAI) -> tuple[List[PageSegmentation], List[str]]:
     urls = state["urls"]

@@ -202,7 +202,7 @@ async def evaluate_normalization(state: FlowState, llm: ChatOpenAI) -> dict:
 
     prompt = PromptTemplate(
         template="""Evaluate normalization for data segmentation. In order to do this, compare the "industry" to "industry_normalized" and "page_topic" to "page_topic_normalized".
-Are normalized categories distinct, meaningful, granular? Do they effectively group similar values from the original data into the normalized categories? 
+Are normalized categories BROAD categorizations that relate to the original value? Do they effectively group similar values from the original data into the normalized categories? 
 If so, return 'success'. 
 If not, return 'failure' with feedback on how to improve the normalization.
 **IMPORTANT**: Sometimes the original is already a normalized value. In these cases, the normalized value should be the same as the original. This scenario should not be considered a failure.
