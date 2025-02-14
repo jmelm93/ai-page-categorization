@@ -5,7 +5,8 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain_openai import ChatOpenAI  
 
 from models import NormalizedMappingResponse, PageSegmentation, NormalizationEvaluation, FlowState
-from config import MIN_PAGES_FOR_NORMALIZATION, RETRY_ATTEMPTS  
+from config import RETRY_ATTEMPTS  # MIN_PAGES_FOR_NORMALIZATION, 
+
 
 
 async def get_structured_mappings(prompt_str: str, llm: ChatOpenAI) -> Dict[str, str]:
@@ -52,9 +53,9 @@ async def normalize_industry(state: FlowState) -> List[PageSegmentation]:
     notes = state["evaluation_notes"]
     llm = state["llm"]
     
-    if len(results) < MIN_PAGES_FOR_NORMALIZATION:
-        logger.info("Skipping industry normalization (not enough pages).")
-        return results
+    # if len(results) < MIN_PAGES_FOR_NORMALIZATION:
+    #     logger.info("Skipping industry normalization (not enough pages).")
+    #     return results
 
     distinct_vals = {
         (r.industry or "").strip() for r in results if r.industry
@@ -104,9 +105,9 @@ async def normalize_page_topic(state: FlowState) -> List[PageSegmentation]:
     notes = state["evaluation_notes"]
     llm = state["llm"]
 
-    if len(results) < MIN_PAGES_FOR_NORMALIZATION:
-        logger.info("Skipping page_topic normalization (not enough pages).")
-        return results
+    # if len(results) < MIN_PAGES_FOR_NORMALIZATION:
+    #     logger.info("Skipping page_topic normalization (not enough pages).")
+    #     return results
 
     industry_grouped_topics = {}
     for r in results:
@@ -115,7 +116,7 @@ async def normalize_page_topic(state: FlowState) -> List[PageSegmentation]:
 
     for industry, topics in industry_grouped_topics.items():
         prompt_str = f"""You are an expert data analyst tasked with creating a normalized set of BROAD categories.
-Normalize the following page topic values *within the context of the industry '{industry}'*.
+Normalize the following page topic values *within the context of the industry '{industry}'.
 Create CONCISE, GENERAL categories suitable for data analysis across a wide range of pages.  
 Group similar values together into BROADER categories.
 
@@ -148,6 +149,18 @@ Output:
   ]
 }}
 
+Example (Industry: Personal Finance):
+Input: ['How to Make Money with a Side Gig', 'How to Save Money on Groceries', 'Investing in Stocks', 'Credit Card Rewards']
+Output:
+{{
+  "mappings": [
+    {{"original_value": "How to Make Money with a Side Gig", "normalized_value": "Money"}},
+    {{"original_value": "How to Save Money on Groceries", "normalized_value": "Money"}},
+    {{"original_value": "Investing in the Stock Market", "normalized_value": "Investing"}},
+    {{"original_value": "Credit Card Reward Projects", "normalized_value": "Credit Cards"}}
+  ]
+}}
+
 Input Values:
 {list(topics)}
 
@@ -155,6 +168,8 @@ Input Values:
 
 Return JSON in the EXACT format shown in the example, with a top-level "mappings" key.
 """
+        print("CHECKING PROMPT FOR PAGE TOPIC")
+        print("prompt_str:", prompt_str)
         topic_map = await get_structured_mappings(prompt_str,llm) # Pass llm
         for r in results:
             if r.industry_normalized == industry and r.page_topic:
@@ -184,12 +199,29 @@ async def evaluate_normalization(state) -> dict:
         }
         for r in results
     ]
-
+    
+    print('eval_data:', eval_data)
     parser = PydanticOutputParser(pydantic_object=NormalizationEvaluation)
+
+    print('parser.get_format_instructions()', parser.get_format_instructions())
+    
     prompt = PromptTemplate(
-        template="""Evaluate normalization for data segmentation. Are categories distinct, meaningful, granular?
-Data: {eval_data}
-JSON: {format_instructions}""",
+        template="""Evaluate normalization for data segmentation. In order to do this, compare the "industry" to "industry_normalized" and "page_topic" to "page_topic_normalized".
+Are normalized categories distinct, meaningful, granular? Do they effectively group similar values from the original data into the normalized categories? 
+If so, return 'success'. 
+If not, return 'failure' with feedback on how to improve the normalization.
+**IMPORTANT**: Sometimes the original is already a normalized value. In these cases, the normalized value should be the same as the original. This scenario should not be considered a failure.
+**Examples of Good Normalization**:
+- Original: 'Walking Dogs', Normalized: 'Pets'
+- Original: 'Tech', Normalized: 'Technology'
+- Original: 'red wine', Normalized: 'Wine'
+- Original: 'grey goose', Normalized: 'Spirits'
+- Original: 'AWS S3', Normalized: 'Cloud'
+- Original: 'How to Make Money with a Side Gig', Normalized: 'Money'
+**Normalized Pairings to QA**: 
+{eval_data}
+**Output Instructions**: 
+{format_instructions}""",
         input_variables=["eval_data"],
         partial_variables={"format_instructions": parser.get_format_instructions()},
     )
