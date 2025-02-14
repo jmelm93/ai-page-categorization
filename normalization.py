@@ -200,6 +200,7 @@ JSON: {format_instructions}""",
         logger.info(f"Normalization evaluation: {evaluation.status}")
         if evaluation.status == "failure":
             retry_count += 1
+            logger.info(f"Evaluation failed. Retry count: {retry_count}. Evaluation notes: {evaluation.notes}")
         return {"evaluation_notes": evaluation.notes, "retry_count": retry_count, "eval_status": evaluation.status}
     except Exception as e:
         logger.error(f"Error during normalization evaluation: {e}")
