@@ -168,8 +168,6 @@ Input Values:
 
 Return JSON in the EXACT format shown in the example, with a top-level "mappings" key.
 """
-        print("CHECKING PROMPT FOR PAGE TOPIC")
-        print("prompt_str:", prompt_str)
         topic_map = await get_structured_mappings(prompt_str,llm) # Pass llm
         for r in results:
             if r.industry_normalized == industry and r.page_topic:
@@ -199,12 +197,12 @@ async def evaluate_normalization(state) -> dict:
         }
         for r in results
     ]
-    
-    print('eval_data:', eval_data)
-    parser = PydanticOutputParser(pydantic_object=NormalizationEvaluation)
 
-    print('parser.get_format_instructions()', parser.get_format_instructions())
+    parser = PydanticOutputParser(pydantic_object=NormalizationEvaluation)
     
+    # print('eval_data:', eval_data)
+    # print('parser.get_format_instructions()', parser.get_format_instructions())
+
     prompt = PromptTemplate(
         template="""Evaluate normalization for data segmentation. In order to do this, compare the "industry" to "industry_normalized" and "page_topic" to "page_topic_normalized".
 Are normalized categories distinct, meaningful, granular? Do they effectively group similar values from the original data into the normalized categories? 

@@ -120,14 +120,14 @@ async def process_one_url(url: str, llm: ChatOpenAI) -> PageSegmentation:
         # 3. Combine and Limit Content
         combined_content = h1_content + "\n".join(keyword_sentences)
         limited_content = combined_content[:MAX_CONTENT_LENGTH]
-
+        
         segmentation = await async_analyze_page(limited_content, url, llm) # Pass limited content and llm
         segmentation.extracted_date = extracted_date
         return segmentation
 
     except Exception as e:
         logger.error(f"Error processing {url}: {e}")
-        return PageSegmentation(page_url=url, page_type_l1="Error", page_intent_l1="Error")
+        return PageSegmentation(page_url=url, page_type_l1="Error", page_intent_l1="Error", extracted_date=None, page_type_l2=None, page_intent_l2=None, industry=None, page_topic=None)
 
 async def process_urls(state: FlowState) -> tuple[List[PageSegmentation], List[str]]:
     urls = state["urls"]
