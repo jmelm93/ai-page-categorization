@@ -1,0 +1,8 @@
+langchain
+langchain-community
+langchain-openai
+loguru
+firecrawl
+pandas
+html2text
+scikit-learn
