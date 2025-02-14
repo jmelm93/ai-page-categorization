@@ -92,7 +92,6 @@ class NormalizationEvaluation(BaseModel):
 
 # --- Flow State ---
 class FlowState(TypedDict):
-    llm: ChatOpenAI
     urls: List[str]
     results: List[PageSegmentation]
     final_markdown: str

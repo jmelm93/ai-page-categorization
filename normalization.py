@@ -48,10 +48,9 @@ async def get_structured_mappings(prompt_str: str, llm: ChatOpenAI) -> Dict[str,
 
 
 # async def normalize_industry(results: List[PageSegmentation], notes: str, llm: ChatOpenAI) -> List[PageSegmentation]:
-async def normalize_industry(state: FlowState) -> List[PageSegmentation]:
+async def normalize_industry(state: FlowState, llm: ChatOpenAI) -> List[PageSegmentation]:
     results = state["results"]
     notes = state["evaluation_notes"]
-    llm = state["llm"]
     
     # if len(results) < MIN_PAGES_FOR_NORMALIZATION:
     #     logger.info("Skipping industry normalization (not enough pages).")
@@ -100,10 +99,9 @@ Return JSON in the EXACT format shown in the example, with a top-level "mappings
 
 
 # async def normalize_page_topic(results: List[PageSegmentation], notes: str, llm: ChatOpenAI) -> List[PageSegmentation]:
-async def normalize_page_topic(state: FlowState) -> List[PageSegmentation]:
+async def normalize_page_topic(state: FlowState, llm: ChatOpenAI) -> List[PageSegmentation]:
     results = state["results"]
     notes = state["evaluation_notes"]
-    llm = state["llm"]
 
     # if len(results) < MIN_PAGES_FOR_NORMALIZATION:
     #     logger.info("Skipping page_topic normalization (not enough pages).")
@@ -179,10 +177,9 @@ Return JSON in the EXACT format shown in the example, with a top-level "mappings
 
     return results
 
-async def evaluate_normalization(state) -> dict:
+async def evaluate_normalization(state: FlowState, llm: ChatOpenAI) -> dict:
     results = state["results"]
     retry_count = state["retry_count"]
-    llm = state["llm"]
     
     if retry_count >= RETRY_ATTEMPTS:
         logger.info("Max retries reached. Skipping evaluation.")

@@ -128,9 +128,8 @@ async def process_one_url(url: str, llm: ChatOpenAI) -> PageSegmentation:
         logger.error(f"Error processing {url}: {e}")
         return PageSegmentation(page_url=url, page_type_l1="Error", page_intent_l1="Error", extracted_date=None, page_type_l2=None, page_intent_l2=None, industry=None, page_topic=None)
 
-async def process_urls(state: FlowState) -> tuple[List[PageSegmentation], List[str]]:
+async def process_urls(state: FlowState, llm: ChatOpenAI) -> tuple[List[PageSegmentation], List[str]]:
     urls = state["urls"]
-    llm = state["llm"]
     
     results: List[PageSegmentation] = []
     failed_urls: List[str] = []

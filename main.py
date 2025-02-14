@@ -16,31 +16,35 @@ from langgraph.graph import END, START, StateGraph
 
 # Local imports
 from utils import load_urls_from_csv
-from config import LLM_MODEL, TEMPERATURE, INPUT_CSV_PATH, RETRY_ATTEMPTS
+from config import LLM_MODEL_ADVANCED, LLM_MODEL_FAST, TEMPERATURE, INPUT_CSV_PATH, RETRY_ATTEMPTS
 from models import FlowState
 import normalization
 import scraping
+
+# --- LLM Setup ---
+llm_advanced = ChatOpenAI(model_name=LLM_MODEL_ADVANCED, temperature=TEMPERATURE)
+llm_fast = ChatOpenAI(model_name=LLM_MODEL_FAST, temperature=TEMPERATURE)
 
 # --- Node Functions ---
 
 async def process_urls_node(state: FlowState) -> dict:
     logger.info("Processing URLs...")
-    results, failed_urls = await scraping.process_urls(state)  
+    results, failed_urls = await scraping.process_urls(state, llm=llm_fast)
     return {"results": results, "failed_urls": failed_urls} # Update state keys
 
 async def normalize_industry_node(state: FlowState) -> dict:
     logger.info("Normalizing industry...")
-    updated_results = await normalization.normalize_industry(state)
+    updated_results = await normalization.normalize_industry(state, llm=llm_advanced)
     return {"results": updated_results} # Update state keys
 
 async def normalize_page_topic_node(state: FlowState) -> dict:
     logger.info("Normalizing page topic...")
-    updated_results = await normalization.normalize_page_topic(state) 
+    updated_results = await normalization.normalize_page_topic(state, llm=llm_advanced)
     return {"results": updated_results} # Update state keys
 
 async def evaluate_normalization_node(state: FlowState) -> dict:
     logger.info("Evaluating normalization...")
-    result = await normalization.evaluate_normalization(state)
+    result = await normalization.evaluate_normalization(state, llm=llm_advanced)
     return result # No unpacking needed to update state keys
 
 
@@ -104,7 +108,11 @@ def aggregator(state: FlowState) -> dict:
     df.to_csv(buffer, index=False, quoting=py_csv.QUOTE_ALL)
     final_csv = buffer.getvalue()
 
-    return {"final_markdown": final_markdown, "final_csv": final_csv, "failed_urls": failed_urls, "llm": state["llm"], "retry_count": state["retry_count"], "evaluation_notes": state["evaluation_notes"], "results": state["results"]}
+    return {
+        "final_markdown": final_markdown,
+        "final_csv": final_csv,
+        "failed_urls": failed_urls,
+    }
 
 
 # --- Graph Definition ---
@@ -131,9 +139,8 @@ async_app = workflow.compile()
 
 
 # --- Main Function ---
-async def run_flow_async(urls: List[str]) -> FlowState:
+async def run_flow_async(urls: List[str]):
      # Create LLM here and add to initial state
-    llm = ChatOpenAI(model_name=LLM_MODEL, temperature=TEMPERATURE)
     initial_state = {
         "urls": urls,
         "results": [],
@@ -142,7 +149,6 @@ async def run_flow_async(urls: List[str]) -> FlowState:
         "retry_count": 0,
         "evaluation_notes": "",
         "failed_urls": [],
-        "llm": llm,  # Add LLM to the initial state
     }
     final_state = await async_app.ainvoke(initial_state)
     return final_state
