@@ -6,7 +6,7 @@ import asyncio
 from typing import List
 from loguru import logger
 from requests.exceptions import RequestException, Timeout, HTTPError
-
+from bs4 import BeautifulSoup
 
 # Optional Proxy Env Vars
 PROXY_HOST = os.getenv("PROXY_HOST")
@@ -33,6 +33,91 @@ def html_to_markdown(html_text: str) -> str:
     h.bypass_tables = False
     return h.handle(html_text)
 
+def extract_heading_blocks(html: str, heading_tags=('h1','h2','h3')) -> list[tuple[str, str]]:
+    """
+    Parse HTML and return a list of (heading_text, section_html).
+    Each tuple covers the text *under* that heading until the next heading of equal or higher level.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Find all heading elements of the specified types
+    all_headings = soup.find_all(heading_tags)
+    if not all_headings:
+        return []
+
+    heading_blocks = []
+    
+    for idx, heading in enumerate(all_headings):
+        heading_text = heading.get_text(strip=True)
+
+        # Determine which heading level (integer). e.g. <h2> => 2
+        current_level = int(heading.name[-1])
+
+        # We'll gather all HTML elements until the next heading of the same or higher level
+        block_html_parts = []
+
+        # Look at the elements following this heading, up to the next heading that is same/higher level
+        for sibling in heading.next_siblings:
+            # If it's another tag and is a heading, we check its level
+            if sibling.name in heading_tags:
+                next_level = int(sibling.name[-1])
+                if next_level <= current_level:
+                    # We reached a heading of the same or higher level; break
+                    break
+
+            # If it's not a heading (or a lower-level heading), include it
+            if hasattr(sibling, "get_text"):
+                block_html_parts.append(str(sibling))
+
+        # Join the HTML parts into a single block
+        block_html = "".join(block_html_parts).strip()
+        if block_html:
+            heading_blocks.append((heading_text, block_html))
+
+    return heading_blocks
+
+
+def convert_blocks_to_markdown(heading_blocks: list[tuple[str, str]]) -> list[str]:
+    markdown_blocks = []
+    for heading_text, block_html in heading_blocks:
+        # Convert the heading itself (turn it into a Markdown heading)
+        heading_md = f"# {heading_text}\n\n"  # or use "##" for H2, etc.
+        
+        # Convert the block HTML to Markdown
+        block_md = html_to_markdown(block_html)
+        
+        # Combine them
+        combined_md = heading_md + block_md
+        markdown_blocks.append(combined_md)
+    return markdown_blocks
+
+def chunk_text(text: str, max_chars: int = 2000) -> list[str]:
+    """
+    Splits the text into multiple substrings if it exceeds `max_chars`.
+    """
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + max_chars
+        chunks.append(text[start:end])
+        start = end
+    return chunks
+
+def chunk_markdown_blocks(markdown_blocks: list[str], max_chars: int = 2000) -> list[str]:
+    """
+    For each markdown block, create sub-chunks if needed.
+    Returns a flat list of chunked strings.
+    """
+    final_chunks = []
+    for md_block in markdown_blocks:
+        # If the block is under the limit, just keep it
+        if len(md_block) <= max_chars:
+            final_chunks.append(md_block)
+        else:
+            # Otherwise, chunk it
+            subchunks = chunk_text(md_block, max_chars=max_chars)
+            final_chunks.extend(subchunks)
+    return final_chunks
 
 def fetch_page_content(url: str) -> dict:
     """

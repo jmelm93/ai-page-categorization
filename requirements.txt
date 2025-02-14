@@ -7,3 +7,4 @@ firecrawl
 pandas
 html2text
 scikit-learn
+beautifulsoup4
